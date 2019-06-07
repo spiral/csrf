@@ -6,22 +6,20 @@
  * @author    Anton Titov (Wolfy-J)
  */
 
-namespace Spiral\Http\Tests;
+namespace Spiral\Csrf\Tests;
 
-use Defuse\Crypto\Key;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Spiral\Core\Container;
-use Spiral\Encrypter\Config\EncrypterConfig;
-use Spiral\Encrypter\EncrypterFactory;
-use Spiral\Encrypter\EncryptionInterface;
+use Spiral\Csrf\Config\CsrfConfig;
+use Spiral\Csrf\Middleware\CsrfFirewall;
+use Spiral\Csrf\Middleware\CsrfMiddleware;
+use Spiral\Csrf\Middleware\StrictCsrfFirewall;
 use Spiral\Http\Config\HttpConfig;
 use Spiral\Http\Http;
-use Spiral\Http\Middleware\CookiesMiddleware;
-use Spiral\Http\Middleware\CsrfFirewall;
-use Spiral\Http\Middleware\CsrfMiddleware;
 use Spiral\Http\Pipeline;
-use Spiral\Http\ResponseFactory;
+use Zend\Diactoros\Response;
 use Zend\Diactoros\ServerRequest;
 
 class CsrfTest extends TestCase
@@ -31,35 +29,21 @@ class CsrfTest extends TestCase
     public function setUp()
     {
         $this->container = new Container();
-        $this->container->bind(HttpConfig::class, new HttpConfig([
-            'basePath'   => '/',
-            'headers'    => [
-                'Content-Type' => 'text/html; charset=UTF-8'
-            ],
-            'middleware' => [],
-            'cookies'    => [
-                'domain'   => '.%s',
-                'method'   => HttpConfig::COOKIE_ENCRYPT,
-                'excluded' => ['PHPSESSID', 'csrf-token']
-            ],
-            'csrf'       => [
-                'cookie'   => 'csrf-token',
-                'length'   => 16,
-                'lifetime' => 86400
-            ]
+        $this->container->bind(CsrfConfig::class, new CsrfConfig([
+            'cookie'   => 'csrf-token',
+            'length'   => 16,
+            'lifetime' => 86400
         ]));
 
         $this->container->bind(
-            EncryptionInterface::class,
-            new EncrypterFactory(new EncrypterConfig([
-                'key' => Key::createNewRandomKey()->saveToAsciiSafeString()
-            ]))
+            ResponseFactoryInterface::class,
+            new TestResponseFactory(new HttpConfig(['headers' => []]))
         );
     }
 
     public function testGet()
     {
-        $core = $this->getCore([CsrfMiddleware::class]);
+        $core = $this->httpCore([CsrfMiddleware::class]);
         $core->setHandler(function ($r) {
             return $r->getAttribute(CsrfMiddleware::ATTRIBUTE);
         });
@@ -79,25 +63,13 @@ class CsrfTest extends TestCase
      */
     public function testLengthException()
     {
-        $this->container->bind(HttpConfig::class, new HttpConfig([
-            'basePath'   => '/',
-            'headers'    => [
-                'Content-Type' => 'text/html; charset=UTF-8'
-            ],
-            'middleware' => [],
-            'cookies'    => [
-                'domain'   => '.%s',
-                'method'   => HttpConfig::COOKIE_ENCRYPT,
-                'excluded' => ['PHPSESSID', 'csrf-token']
-            ],
-            'csrf'       => [
-                'cookie'   => 'csrf-token',
-                'length'   => 0,
-                'lifetime' => 86400
-            ]
+        $this->container->bind(CsrfConfig::class, new CsrfConfig([
+            'cookie'   => 'csrf-token',
+            'length'   => 0,
+            'lifetime' => 86400
         ]));
 
-        $core = $this->getCore([CsrfMiddleware::class]);
+        $core = $this->httpCore([CsrfMiddleware::class]);
         $core->setHandler(function () {
             return 'all good';
         });
@@ -107,7 +79,7 @@ class CsrfTest extends TestCase
 
     public function testPostForbidden()
     {
-        $core = $this->getCore([CsrfMiddleware::class, CsrfFirewall::class]);
+        $core = $this->httpCore([CsrfMiddleware::class, CsrfFirewall::class]);
         $core->setHandler(function () {
             return 'all good';
         });
@@ -121,7 +93,7 @@ class CsrfTest extends TestCase
      */
     public function testLogicException()
     {
-        $core = $this->getCore([CsrfFirewall::class]);
+        $core = $this->httpCore([CsrfFirewall::class]);
         $core->setHandler(function () {
             return 'all good';
         });
@@ -131,7 +103,7 @@ class CsrfTest extends TestCase
 
     public function testPostOK()
     {
-        $core = $this->getCore([CsrfMiddleware::class, CsrfFirewall::class]);
+        $core = $this->httpCore([CsrfMiddleware::class, CsrfFirewall::class]);
         $core->setHandler(function () {
             return 'all good';
         });
@@ -156,7 +128,7 @@ class CsrfTest extends TestCase
 
     public function testHeaderOK()
     {
-        $core = $this->getCore([CsrfMiddleware::class, CsrfFirewall::class]);
+        $core = $this->httpCore([CsrfMiddleware::class, CsrfFirewall::class]);
         $core->setHandler(function () {
             return 'all good';
         });
@@ -179,60 +151,44 @@ class CsrfTest extends TestCase
         $this->assertSame('all good', (string)$response->getBody());
     }
 
-    public function testPostOKCookieManagerEnabled()
+    public function testHeaderOKStrict()
     {
-        $core = $this->getCore([
-            CookiesMiddleware::class,
-            CsrfMiddleware::class,
-            CsrfFirewall::class
-        ]);
+        $core = $this->httpCore([CsrfMiddleware::class, StrictCsrfFirewall::class]);
         $core->setHandler(function () {
             return 'all good';
         });
 
         $response = $this->get($core, '/');
-        $this->assertSame(200, $response->getStatusCode());
-        $this->assertSame('all good', (string)$response->getBody());
+        $this->assertSame(412, $response->getStatusCode());
 
         $cookies = $this->fetchCookies($response);
 
-        $response = $this->post($core, '/', [], [], ['csrf-token' => $cookies['csrf-token']]);
+        $response = $this->get($core, '/', [], [], ['csrf-token' => $cookies['csrf-token']]);
 
         $this->assertSame(412, $response->getStatusCode());
 
-        $response = $this->post($core, '/', [
-            'csrf-token' => $cookies['csrf-token']
-        ], [], ['csrf-token' => $cookies['csrf-token']]);
+        $response = $this->get($core, '/', [], [
+            'X-CSRF-Token' => $cookies['csrf-token']
+        ], ['csrf-token' => $cookies['csrf-token']]);
 
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame('all good', (string)$response->getBody());
     }
 
-
-    protected function getCore(array $middleware = []): Http
+    protected function httpCore(array $middleware = []): Http
     {
         $config = new HttpConfig([
             'basePath'   => '/',
             'headers'    => [
                 'Content-Type' => 'text/html; charset=UTF-8'
             ],
-            'middleware' => $middleware,
-            'cookies'    => [
-                'domain'   => '.%s',
-                'method'   => HttpConfig::COOKIE_ENCRYPT,
-                'excluded' => ['PHPSESSID', 'csrf-token']
-            ],
-            'csrf'       => [
-                'cookie'   => 'csrf-token',
-                'length'   => 16,
-                'lifetime' => 86400
-            ]
+            'middleware' => $middleware
         ]);
 
         return new Http(
             $config,
             new Pipeline($this->container),
-            new ResponseFactory($config),
+            new TestResponseFactory($config),
             $this->container
         );
     }
@@ -254,9 +210,7 @@ class CsrfTest extends TestCase
         array $headers = [],
         array $cookies = []
     ): ResponseInterface {
-        return $core->handle(
-            $this->request($uri, 'POST', [], $headers, $cookies)->withParsedBody($data)
-        );
+        return $core->handle($this->request($uri, 'POST', [], $headers, $cookies)->withParsedBody($data));
     }
 
     protected function request(
@@ -287,5 +241,37 @@ class CsrfTest extends TestCase
         }
 
         return $result;
+    }
+}
+
+final class TestResponseFactory implements ResponseFactoryInterface
+{
+    /** @var HttpConfig */
+    protected $config;
+
+    /**
+     * @param HttpConfig $config
+     */
+    public function __construct(HttpConfig $config)
+    {
+        $this->config = $config;
+    }
+
+    /**
+     * @param int    $code
+     * @param string $reasonPhrase
+     *
+     * @return ResponseInterface
+     */
+    public function createResponse(int $code = 200, string $reasonPhrase = ''): ResponseInterface
+    {
+        $response = new Response('php://memory', $code, []);
+        $response = $response->withStatus($code, $reasonPhrase);
+
+        foreach ($this->config->getBaseHeaders() as $header => $value) {
+            $response = $response->withAddedHeader($header, $value);
+        }
+
+        return $response;
     }
 }

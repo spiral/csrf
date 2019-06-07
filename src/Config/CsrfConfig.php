@@ -7,7 +7,7 @@
  */
 declare(strict_types=1);
 
-namespace Spiral\Http\Config;
+namespace Spiral\Csrf\Config;
 
 use Spiral\Core\InjectableConfig;
 
@@ -25,34 +25,35 @@ final class CsrfConfig extends InjectableConfig
     ];
 
     /**
-     * @return string
+     * @return int
      */
-    public function getCsrfCookie(): string
+    public function getTokenLength(): int
     {
-        return $this->config['csrf']['cookie'];
+        return $this->config['length'];
     }
 
     /**
-     * @return int
+     * @return string
      */
-    public function getCsrfLength(): int
+    public function getCookie(): string
     {
-        return $this->config['csrf']['length'];
+        return $this->config['cookie'];
     }
+
 
     /**
      * @return int|null
      */
-    public function getCsrfLifetime(): ?int
+    public function getCookieLifetime(): ?int
     {
-        return $this->config['csrf']['lifetime'] ?? null;
+        return $this->config['lifetime'] ?? null;
     }
 
     /**
      * @return bool
      */
-    public function csrfSecure(): bool
+    public function isCookieSecure(): bool
     {
-        return !empty($this->config['csrf']['secure']);
+        return !empty($this->config['secure']);
     }
 }

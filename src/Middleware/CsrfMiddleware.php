@@ -7,15 +7,13 @@
  */
 declare(strict_types=1);
 
-namespace Spiral\Http\Middleware;
+namespace Spiral\Csrf\Middleware;
 
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
-use Psr\Http\Message\UriInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use Spiral\Http\Config\HttpConfig;
-use Spiral\Http\Cookie\Cookie;
+use Spiral\Csrf\Config\CsrfConfig;
 
 /**
  * Provides generic CSRF protection using cookie as token storage. Set "csrfToken" attribute to
@@ -27,15 +25,15 @@ use Spiral\Http\Cookie\Cookie;
  */
 final class CsrfMiddleware implements MiddlewareInterface
 {
-    const ATTRIBUTE = 'csrfToken';
+    public const ATTRIBUTE = 'csrfToken';
 
-    /** @var HttpConfig */
+    /** @var CsrfConfig */
     protected $config = null;
 
     /**
-     * @param HttpConfig $config
+     * @param CsrfConfig $config
      */
-    public function __construct(HttpConfig $config)
+    public function __construct(CsrfConfig $config)
     {
         $this->config = $config;
     }
@@ -45,21 +43,21 @@ final class CsrfMiddleware implements MiddlewareInterface
      */
     public function process(Request $request, RequestHandlerInterface $handler): Response
     {
-        if (isset($request->getCookieParams()[$this->config->getCsrfCookie()])) {
-            $token = $request->getCookieParams()[$this->config->getCsrfCookie()];
+        if (isset($request->getCookieParams()[$this->config->getCookie()])) {
+            $token = $request->getCookieParams()[$this->config->getCookie()];
         } else {
             //Making new token
-            $token = $this->random($this->config->getCsrfLength());
+            $token = $this->random($this->config->getTokenLength());
 
             //Token cookie!
-            $cookie = $this->tokenCookie($request->getUri(), $token);
+            $cookie = $this->tokenCookie($token);
         }
 
         //CSRF issues must be handled by Firewall middleware
         $response = $handler->handle($request->withAttribute(static::ATTRIBUTE, $token));
 
         if (!empty($cookie)) {
-            return $response->withAddedHeader('Set-Cookie', (string)$cookie);
+            return $response->withAddedHeader('Set-Cookie', $cookie);
         }
 
         return $response;
@@ -87,21 +85,24 @@ final class CsrfMiddleware implements MiddlewareInterface
     /**
      * Generate CSRF cookie.
      *
-     * @param UriInterface $uri Incoming uri.
-     * @param string       $token
-     *
-     * @return Cookie
+     * @param string $token
+     * @return string
      */
-    protected function tokenCookie(UriInterface $uri, string $token): Cookie
+    protected function tokenCookie(string $token): string
     {
-        return Cookie::create(
-            $this->config->getCsrfCookie(),
-            $token,
-            $this->config->getCsrfLifetime(),
-            $this->config->basePath(),
-            $this->config->cookieDomain($uri),
-            $this->config->csrfSecure(),
-            true
-        );
+        $header = [rawurlencode($this->config->getCookie()) . '=' . rawurlencode((string)$token)];
+
+        if ($this->config->getCookieLifetime() !== null) {
+            $header[] = 'Expires=' . gmdate(\DateTime::COOKIE, time() + $this->config->getCookieLifetime());
+            $header[] = 'Max-Age=' . $this->config->getCookieLifetime();
+        }
+
+        if ($this->config->isCookieSecure()) {
+            $header[] = 'Secure';
+        }
+
+        $header[] = 'HttpOnly';
+
+        return join('; ', $header);
     }
 }

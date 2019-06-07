@@ -7,8 +7,9 @@
  */
 declare(strict_types=1);
 
-namespace Spiral\Http\Middleware;
+namespace Spiral\Csrf\Middleware;
 
+use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Server\MiddlewareInterface;
@@ -18,22 +19,38 @@ use Psr\Http\Server\RequestHandlerInterface;
  * Provides generic CSRF protection using cookie as token storage. Set "csrfToken" attribute to
  * request.
  */
-class CsrfFirewall implements MiddlewareInterface
+final class CsrfFirewall implements MiddlewareInterface
 {
     /**
      * Header to check for token instead of POST/GET data.
      */
-    const HEADER = 'X-CSRF-Token';
+    public const HEADER = 'X-CSRF-Token';
 
     /**
      * Parameter name used to represent client token in POST data.
      */
-    const PARAMETER = 'csrf-token';
+    public const PARAMETER = 'csrf-token';
 
     /**
      * Methods to be allowed to be passed with proper token.
      */
-    const ALLOW_METHODS = ['GET', 'HEAD', 'OPTIONS'];
+    public const ALLOW_METHODS = ['GET', 'HEAD', 'OPTIONS'];
+
+    /** @var ResponseFactoryInterface */
+    private $responseFactory;
+
+    /** @var array */
+    private $allowMethods = [];
+
+    /**
+     * @param ResponseFactoryInterface $responseFactory
+     * @param array                    $allowMethods
+     */
+    public function __construct(ResponseFactoryInterface $responseFactory, array $allowMethods = self::ALLOW_METHODS)
+    {
+        $this->responseFactory = $responseFactory;
+        $this->allowMethods = $allowMethods;
+    }
 
     /**
      * {@inheritdoc}
@@ -47,7 +64,7 @@ class CsrfFirewall implements MiddlewareInterface
         }
 
         if ($this->isRequired($request) && !hash_equals($token, $this->fetchToken($request))) {
-            return (new \Zend\Diactoros\Response("php://memory"))->withStatus(412, 'Bad CSRF Token');
+            return $this->responseFactory->createResponse(412, 'Bad CSRF Token');
         }
 
         return $handler->handle($request);
@@ -61,7 +78,7 @@ class CsrfFirewall implements MiddlewareInterface
      */
     protected function isRequired(Request $request): bool
     {
-        return !in_array($request->getMethod(), static::ALLOW_METHODS);
+        return !in_array($request->getMethod(), $this->allowMethods);
     }
 
     /**
