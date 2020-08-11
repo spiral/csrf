@@ -1,10 +1,12 @@
 <?php
+
 /**
  * Spiral Framework.
  *
  * @license   MIT
  * @author    Anton Titov (Wolfy-J)
  */
+
 declare(strict_types=1);
 
 namespace Spiral\Csrf\Middleware;
@@ -28,7 +30,7 @@ final class CsrfMiddleware implements MiddlewareInterface
     public const ATTRIBUTE = 'csrfToken';
 
     /** @var CsrfConfig */
-    protected $config = null;
+    protected $config;
 
     /**
      * @param CsrfConfig $config
@@ -64,25 +66,6 @@ final class CsrfMiddleware implements MiddlewareInterface
     }
 
     /**
-     * Create a random string with desired length.
-     *
-     * @param int $length String length. 32 symbols by default.
-     * @return string
-     */
-    private function random(int $length = 32): string
-    {
-        try {
-            if (empty($string = random_bytes($length))) {
-                throw new \RuntimeException("Unable to generate random string");
-            }
-        } catch (\Throwable $e) {
-            throw new \RuntimeException("Unable to generate random string", $e->getCode(), $e);
-        }
-
-        return substr(base64_encode($string), 0, $length);
-    }
-
-    /**
      * Generate CSRF cookie.
      *
      * @param string $token
@@ -90,7 +73,7 @@ final class CsrfMiddleware implements MiddlewareInterface
      */
     protected function tokenCookie(string $token): string
     {
-        $header = [rawurlencode($this->config->getCookie()) . '=' . rawurlencode((string)$token)];
+        $header = [rawurlencode($this->config->getCookie()) . '=' . rawurlencode($token)];
 
         if ($this->config->getCookieLifetime() !== null) {
             $header[] = 'Expires=' . gmdate(\DateTime::COOKIE, time() + $this->config->getCookieLifetime());
@@ -103,6 +86,25 @@ final class CsrfMiddleware implements MiddlewareInterface
 
         $header[] = 'HttpOnly';
 
-        return join('; ', $header);
+        return implode('; ', $header);
+    }
+
+    /**
+     * Create a random string with desired length.
+     *
+     * @param int $length String length. 32 symbols by default.
+     * @return string
+     */
+    private function random(int $length = 32): string
+    {
+        try {
+            if (empty($string = random_bytes($length))) {
+                throw new \RuntimeException('Unable to generate random string');
+            }
+        } catch (\Throwable $e) {
+            throw new \RuntimeException('Unable to generate random string', $e->getCode(), $e);
+        }
+
+        return substr(base64_encode($string), 0, $length);
     }
 }
