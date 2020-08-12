@@ -21,13 +21,15 @@ class ConfigTest extends TestCase
         $c = new CsrfConfig([
             'cookie'   => 'csrf-token',
             'length'   => 16,
-            'lifetime' => 86400
+            'lifetime' => 86400,
+            'sameSite' => 'Lax'
         ]);
 
         self::assertSame('csrf-token', $c->getCookie());
         self::assertSame(16, $c->getTokenLength());
         self::assertSame(86400, $c->getCookieLifetime());
         self::assertFalse($c->isCookieSecure());
+        self::assertSame('Lax', $c->getSameSite());
 
         $c = new CsrfConfig([
             'cookie' => 'csrf-token',
@@ -37,5 +39,6 @@ class ConfigTest extends TestCase
 
         self::assertNull($c->getCookieLifetime());
         self::assertTrue($c->isCookieSecure());
+        self::assertNull($c->getSameSite());
     }
 }

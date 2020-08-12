@@ -12,7 +12,8 @@
   "require": {
     "php": "^7.2",
     "spiral/core": "^1.0",
-    "psr/http-server-middleware": "^1.0"
+    "psr/http-server-middleware": "^1.0",
+    "spiral/cookies": "^1.2"
   },
   "require-dev": {
     "spiral/http": "^1.1",

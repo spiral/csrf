@@ -15,6 +15,7 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Spiral\Cookies\Cookie;
 use Spiral\Csrf\Config\CsrfConfig;
 
 /**
@@ -73,20 +74,16 @@ final class CsrfMiddleware implements MiddlewareInterface
      */
     protected function tokenCookie(string $token): string
     {
-        $header = [rawurlencode($this->config->getCookie()) . '=' . rawurlencode($token)];
-
-        if ($this->config->getCookieLifetime() !== null) {
-            $header[] = 'Expires=' . gmdate(\DateTime::COOKIE, time() + $this->config->getCookieLifetime());
-            $header[] = 'Max-Age=' . $this->config->getCookieLifetime();
-        }
-
-        if ($this->config->isCookieSecure()) {
-            $header[] = 'Secure';
-        }
-
-        $header[] = 'HttpOnly';
-
-        return implode('; ', $header);
+        return Cookie::create(
+            $this->config->getCookie(),
+            $token,
+            $this->config->getCookieLifetime(),
+            null,
+            null,
+            $this->config->isCookieSecure(),
+            true,
+            $this->config->getSameSite()
+        )->createHeader();
     }
 
     /**
