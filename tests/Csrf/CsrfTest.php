@@ -277,14 +277,16 @@ class CsrfTest extends TestCase
     {
         $result = [];
 
-        foreach ($response->getHeaders() as $line) {
-            $chunk = explode(';', implode('', $line));
-            if (!count($chunk) || mb_strpos($chunk[0], '=') === false) {
-                continue;
-            }
+        foreach ($response->getHeaders() as $header) {
+            foreach ($header as $headerLine){
+                $chunk = explode(';', $headerLine);
+                if (!count($chunk) || mb_strpos($chunk[0], '=') === false) {
+                    continue;
+                }
 
-            $cookie = explode('=', $chunk[0]);
-            $result[$cookie[0]] = rawurldecode($cookie[1]);
+                $cookie = explode('=', $chunk[0]);
+                $result[$cookie[0]] = rawurldecode($cookie[1]);
+            }
         }
 
         return $result;
