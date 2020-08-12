@@ -1,10 +1,12 @@
 <?php
+
 /**
  * Spiral Framework.
  *
  * @license   MIT
  * @author    Anton Titov (Wolfy-J)
  */
+
 declare(strict_types=1);
 
 namespace Spiral\Csrf\Middleware;
@@ -40,7 +42,7 @@ final class CsrfFirewall implements MiddlewareInterface
     private $responseFactory;
 
     /** @var array */
-    private $allowMethods = [];
+    private $allowMethods;
 
     /**
      * @param ResponseFactoryInterface $responseFactory
@@ -60,7 +62,7 @@ final class CsrfFirewall implements MiddlewareInterface
         $token = $request->getAttribute(CsrfMiddleware::ATTRIBUTE);
 
         if (empty($token)) {
-            throw new \LogicException("Unable to apply CSRF firewall, attribute is missing");
+            throw new \LogicException('Unable to apply CSRF firewall, attribute is missing');
         }
 
         if ($this->isRequired($request) && !hash_equals($token, $this->fetchToken($request))) {
@@ -78,7 +80,7 @@ final class CsrfFirewall implements MiddlewareInterface
      */
     protected function isRequired(Request $request): bool
     {
-        return !in_array($request->getMethod(), $this->allowMethods);
+        return !in_array($request->getMethod(), $this->allowMethods, true);
     }
 
     /**
@@ -94,10 +96,8 @@ final class CsrfFirewall implements MiddlewareInterface
         }
 
         $data = $request->getParsedBody();
-        if (is_array($data) && isset($data[self::PARAMETER])) {
-            if (is_string($data[self::PARAMETER])) {
-                return (string)$data[self::PARAMETER];
-            }
+        if (is_array($data) && isset($data[self::PARAMETER]) && is_string($data[self::PARAMETER])) {
+            return $data[self::PARAMETER];
         }
 
         return '';

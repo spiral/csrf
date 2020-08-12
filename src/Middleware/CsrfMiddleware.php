@@ -1,10 +1,12 @@
 <?php
+
 /**
  * Spiral Framework.
  *
  * @license   MIT
  * @author    Anton Titov (Wolfy-J)
  */
+
 declare(strict_types=1);
 
 namespace Spiral\Csrf\Middleware;
@@ -13,6 +15,7 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Spiral\Cookies\Cookie;
 use Spiral\Csrf\Config\CsrfConfig;
 
 /**
@@ -28,7 +31,7 @@ final class CsrfMiddleware implements MiddlewareInterface
     public const ATTRIBUTE = 'csrfToken';
 
     /** @var CsrfConfig */
-    protected $config = null;
+    protected $config;
 
     /**
      * @param CsrfConfig $config
@@ -64,6 +67,26 @@ final class CsrfMiddleware implements MiddlewareInterface
     }
 
     /**
+     * Generate CSRF cookie.
+     *
+     * @param string $token
+     * @return string
+     */
+    protected function tokenCookie(string $token): string
+    {
+        return Cookie::create(
+            $this->config->getCookie(),
+            $token,
+            $this->config->getCookieLifetime(),
+            null,
+            null,
+            $this->config->isCookieSecure(),
+            true,
+            $this->config->getSameSite()
+        )->createHeader();
+    }
+
+    /**
      * Create a random string with desired length.
      *
      * @param int $length String length. 32 symbols by default.
@@ -73,36 +96,12 @@ final class CsrfMiddleware implements MiddlewareInterface
     {
         try {
             if (empty($string = random_bytes($length))) {
-                throw new \RuntimeException("Unable to generate random string");
+                throw new \RuntimeException('Unable to generate random string');
             }
         } catch (\Throwable $e) {
-            throw new \RuntimeException("Unable to generate random string", $e->getCode(), $e);
+            throw new \RuntimeException('Unable to generate random string', $e->getCode(), $e);
         }
 
         return substr(base64_encode($string), 0, $length);
-    }
-
-    /**
-     * Generate CSRF cookie.
-     *
-     * @param string $token
-     * @return string
-     */
-    protected function tokenCookie(string $token): string
-    {
-        $header = [rawurlencode($this->config->getCookie()) . '=' . rawurlencode((string)$token)];
-
-        if ($this->config->getCookieLifetime() !== null) {
-            $header[] = 'Expires=' . gmdate(\DateTime::COOKIE, time() + $this->config->getCookieLifetime());
-            $header[] = 'Max-Age=' . $this->config->getCookieLifetime();
-        }
-
-        if ($this->config->isCookieSecure()) {
-            $header[] = 'Secure';
-        }
-
-        $header[] = 'HttpOnly';
-
-        return join('; ', $header);
     }
 }

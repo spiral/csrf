@@ -1,10 +1,13 @@
 <?php
+
 /**
  * Spiral Framework.
  *
- * @license   MIT
- * @author    Anton Titov (Wolfy-J)
+ * @license MIT
+ * @author  Anton Titov (Wolfy-J)
+ * @author  Valentin V (vvval)
  */
+
 declare(strict_types=1);
 
 namespace Spiral\Csrf\Config;
@@ -13,7 +16,7 @@ use Spiral\Core\InjectableConfig;
 
 final class CsrfConfig extends InjectableConfig
 {
-    const CONFIG = 'csrf';
+    public const CONFIG = 'csrf';
 
     /**
      * @var array
@@ -55,5 +58,13 @@ final class CsrfConfig extends InjectableConfig
     public function isCookieSecure(): bool
     {
         return !empty($this->config['secure']);
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getSameSite(): ?string
+    {
+        return $this->config['sameSite'] ?? null;
     }
 }
