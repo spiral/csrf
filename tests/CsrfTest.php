@@ -24,7 +24,7 @@ final class CsrfTest extends TestCase
 {
     private Container $container;
 
-    protected function setUp(): void
+    public function setUp(): void
     {
         $options = new Options();
         $options->checkScope = false;
@@ -79,7 +79,7 @@ final class CsrfTest extends TestCase
 
         $core = $this->httpCore([CsrfMiddleware::class]);
         $core->setHandler(
-            static fn(): string => 'all good'
+            static fn() => 'all good'
         );
 
         $this->get($core, '/');
@@ -89,7 +89,7 @@ final class CsrfTest extends TestCase
     {
         $core = $this->httpCore([CsrfMiddleware::class, CsrfFirewall::class]);
         $core->setHandler(
-            static fn(): string => 'all good'
+            static fn() => 'all good'
         );
 
         $response = $this->post($core, '/');
@@ -101,7 +101,7 @@ final class CsrfTest extends TestCase
         $this->expectException(\LogicException::class);
         $core = $this->httpCore([CsrfFirewall::class]);
         $core->setHandler(
-            static fn(): string => 'all good'
+            static fn() => 'all good'
         );
 
         $this->post($core, '/');
@@ -111,7 +111,7 @@ final class CsrfTest extends TestCase
     {
         $core = $this->httpCore([CsrfMiddleware::class, CsrfFirewall::class]);
         $core->setHandler(
-            static fn(): string => 'all good'
+            static fn() => 'all good'
         );
 
         $response = $this->get($core, '/');
@@ -142,7 +142,7 @@ final class CsrfTest extends TestCase
     {
         $core = $this->httpCore([CsrfMiddleware::class, CsrfFirewall::class]);
         $core->setHandler(
-            static fn(): string => 'all good'
+            static fn() => 'all good'
         );
 
         $response = $this->get($core, '/');
@@ -173,7 +173,7 @@ final class CsrfTest extends TestCase
     {
         $core = $this->httpCore([CsrfMiddleware::class, StrictCsrfFirewall::class]);
         $core->setHandler(
-            static fn(): string => 'all good'
+            static fn() => 'all good'
         );
 
         $response = $this->get($core, '/');
