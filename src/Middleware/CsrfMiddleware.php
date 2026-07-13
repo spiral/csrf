@@ -24,8 +24,9 @@ final class CsrfMiddleware implements MiddlewareInterface
     public const ATTRIBUTE = 'csrfToken';
 
     public function __construct(
-        private readonly CsrfConfig $config,
-    ) {}
+        private readonly CsrfConfig $config
+    ) {
+    }
 
     public function process(Request $request, RequestHandlerInterface $handler): Response
     {
@@ -41,7 +42,7 @@ final class CsrfMiddleware implements MiddlewareInterface
         }
 
         //CSRF issues must be handled by Firewall middleware
-        $response = $handler->handle($request->withAttribute(self::ATTRIBUTE, $token));
+        $response = $handler->handle($request->withAttribute(static::ATTRIBUTE, $token));
 
         if (!empty($cookie)) {
             return $response->withAddedHeader('Set-Cookie', $cookie);
@@ -59,11 +60,11 @@ final class CsrfMiddleware implements MiddlewareInterface
             $this->config->getCookie(),
             $token,
             $this->config->getCookieLifetime(),
-            $this->config->getCookiePath(),
+            null,
             null,
             $this->config->isCookieSecure(),
             true,
-            $this->config->getSameSite(),
+            $this->config->getSameSite()
         )->createHeader();
     }
 
@@ -75,7 +76,7 @@ final class CsrfMiddleware implements MiddlewareInterface
     private function random(int $length = 32): string
     {
         try {
-            if (empty($string = \random_bytes($length))) {
+            if (empty($string = random_bytes($length))) {
                 throw new \RuntimeException('Unable to generate random string');
             }
         } catch (\Throwable $e) {

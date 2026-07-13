@@ -15,7 +15,6 @@ final class CsrfConfig extends InjectableConfig
         'length' => 16,
         'lifetime' => null,
         'sameSite' => null,
-        'path' => '/',
     ];
 
     public function getTokenLength(): int
@@ -27,6 +26,7 @@ final class CsrfConfig extends InjectableConfig
     {
         return $this->config['cookie'];
     }
+
 
     public function getCookieLifetime(): ?int
     {
@@ -41,12 +41,5 @@ final class CsrfConfig extends InjectableConfig
     public function getSameSite(): ?string
     {
         return $this->config['sameSite'];
-    }
-
-    public function getCookiePath(): string
-    {
-        // Normalize null/empty to "/": an empty path makes Cookie::createHeader() omit the
-        // Path= attribute, which reintroduces the fragmented-cookie bug this option prevents.
-        return ($this->config['path'] ?? '') ?: '/';
     }
 }
